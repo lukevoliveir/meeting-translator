@@ -186,3 +186,123 @@
 @keyframes pr-spin {
   to { transform: rotate(360deg); }
 }
+
+/* Warn state (microphone fallback) */
+.pr-item--warn { color: var(--warning, #f59e0b); }
+.pr-item--warn .pr-dot { background: var(--warning, #f59e0b); }
+
+/* Method badge */
+.pr-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--accent);
+  vertical-align: middle;
+}
+.pr-badge--green {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+/* Info box (success / warning) */
+.pr-info-box {
+  width: 100%;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.pr-info-box--success {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  color: #22c55e;
+}
+.pr-info-box--warn {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  color: var(--warning, #f59e0b);
+}
+.pr-info-box a { color: inherit; text-decoration: underline; }
+
+/* Ghost button */
+.pr-btn-ghost {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.25rem 0;
+  text-decoration: underline;
+}
+
+/* Options inside alert */
+.pr-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid rgba(239, 68, 68, 0.15);
+  font-size: 0.8rem;
+  color: var(--text);
+}
+.pr-option:first-of-type { border-top: none; }
+
+/* Device picker list */
+.pr-device-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.pr-device-list--inline {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(239, 68, 68, 0.15);
+}
+
+.pr-device-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.55rem 0.75rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+  width: 100%;
+}
+.pr-device-item:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: rgba(99, 102, 241, 0.08);
+}
+.pr-device-item:disabled { opacity: 0.5; cursor: default; }
+.pr-device-item--active {
+  border-color: var(--accent);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.pr-device-name {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text);
+}
+.pr-device-meta {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.pr-switch-error {
+  font-size: 0.75rem;
+  color: var(--danger);
+  margin: 0.25rem 0 0;
+}
