@@ -5,22 +5,40 @@ import './CallOverlay.css'
 
 export default function CallOverlay({ sessionId, targetLang, profile, onSessionEnd }) {
   const [caption, setCaption] = useState('')
+  const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
+  const [warning, setWarning] = useState(null)
   const [phraseCount, setPhraseCount] = useState(0)
   const [showExitModal, setShowExitModal] = useState(false)
   const startTime = useRef(Date.now())
   const sentInit = useRef(false)
+  const historyEndRef = useRef(null)
 
   const { connected, send } = useWebSocket(
     `ws://localhost:8000/ws/transcribe/${sessionId}`,
     (data) => {
       if (data.type === 'caption') {
         setCaption(data.translated)
+        setHistory((prev) => [...prev, {
+          original: data.original,
+          translated: data.translated,
+          timestamp: data.timestamp,
+        }])
         setPhraseCount((n) => n + 1)
+        setLoading(false)
+        setWarning(null)
+      } else if (data.type === 'warning') {
+        setWarning(data.message)
+      } else if (data.type === 'error') {
+        setWarning(data.message)
         setLoading(false)
       }
     }
   )
+
+  useEffect(() => {
+    historyEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [history])
 
   useEffect(() => {
     if (connected && !sentInit.current) {
@@ -66,6 +84,26 @@ export default function CallOverlay({ sessionId, targetLang, profile, onSessionE
         <button className="co-popup-btn" onClick={handlePopup} aria-label="Abrir em janela flutuante">⬆︎</button>
         <button className="co-exit-btn" onClick={() => setShowExitModal(true)} aria-label="Encerrar sessão">✕</button>
       </div>
+
+      {warning && (
+        <div className="co-warning">
+          ⚠️ {warning}
+        </div>
+      )}
+
+      {history.length > 0 && (
+        <div className="co-history">
+          {history.map((entry, i) => (
+            <div key={i} className="co-history-entry">
+              <p className="co-history-translated">{entry.translated}</p>
+              {entry.original !== entry.translated && (
+                <p className="co-history-original">{entry.original}</p>
+              )}
+            </div>
+          ))}
+          <div ref={historyEndRef} />
+        </div>
+      )}
 
       <div className="co-stats">
         <span>{phraseCount} {phraseCount === 1 ? 'frase' : 'frases'} traduzidas</span>
