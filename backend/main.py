@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 sys.path.insert(0, os.path.dirname(__file__))
 
 from config import SUPPORTED_LANGUAGES
-from audio.capture import AudioCapture
+from audio.capture import AudioCapture, list_all_loopback_candidates
 from transcriber.whisper_stt import WhisperTranscriber
 from translator.translate import Translator
 from speaker_profile.profiler import ProfileManager
@@ -28,6 +28,7 @@ app.add_middleware(
 )
 
 audio_capture: AudioCapture = None
+audio_capture_error: str = None   # set when AudioCapture init fails at startup
 whisper: WhisperTranscriber = None
 translator = Translator()
 profile_manager = ProfileManager()
@@ -36,9 +37,13 @@ session_manager = SessionManager()
 
 @app.on_event("startup")
 async def startup():
-    global audio_capture, whisper
-    audio_capture = AudioCapture()
-    audio_capture.start()   # abre o stream de áudio — sem isso a fila fica vazia para sempre
+    global audio_capture, audio_capture_error, whisper
+    try:
+        audio_capture = AudioCapture()
+        audio_capture.start()
+    except Exception as exc:
+        audio_capture_error = str(exc)
+        print(f"[audio] Startup warning — no loopback device: {exc}")
     whisper = WhisperTranscriber()
     print("✓ Backend initialized")
 
@@ -50,50 +55,94 @@ async def health():
 
 @app.get("/api/system/check")
 async def system_check():
-    """Return OS info and whether a virtual audio device is present."""
+    """Return OS info and active loopback device status."""
     import platform
-    import sounddevice as sd
 
-    os_name = platform.system()  # "Darwin" | "Windows" | "Linux"
+    os_name = platform.system()
 
-    virtual_device = None
-    virtual_keywords = {
-        "Darwin":  ["blackhole", "black hole"],
-        "Windows": ["vb-audio", "virtual cable", "cable output", "cable input", "voicemeeter"],
-        "Linux":   ["pulse", "pipewire", "virtual"],
+    driver_download = {
+        "Darwin":  {"name": "BlackHole",              "url": "https://existential.audio/blackhole/"},
+        "Windows": {"name": "VB-Audio Virtual Cable", "url": "https://vb-audio.com/Cable/"},
     }
-    keywords = virtual_keywords.get(os_name, [])
+    driver_info = driver_download.get(os_name, {"name": "Virtual Audio Driver", "url": ""})
 
-    try:
-        devices = sd.query_devices()
-        for d in devices:
-            name_lower = d["name"].lower()
-            if any(kw in name_lower for kw in keywords):
-                virtual_device = d["name"]
-                break
-    except Exception:
-        pass
-
-    download_urls = {
-        "Darwin":  {
-            "name": "BlackHole",
-            "url":  "https://existential.audio/blackhole/",
-        },
-        "Windows": {
-            "name": "VB-Audio Virtual Cable",
-            "url":  "https://vb-audio.com/Cable/",
-        },
-    }
-
-    driver_info = download_urls.get(os_name, {"name": "Virtual Audio Driver", "url": ""})
+    if audio_capture is not None:
+        dev = audio_capture.get_device_info()
+        loopback_found = True
+        device_name   = dev["name"]
+        device_method = dev["method"]
+        device_backend = dev["backend"]
+    else:
+        loopback_found = False
+        device_name    = None
+        device_method  = None
+        device_backend = None
 
     return {
         "os":                   os_name,
-        "virtual_device_found": virtual_device is not None,
-        "virtual_device_name":  virtual_device,
+        # new fields
+        "loopback_found":       loopback_found,
+        "device_name":          device_name,
+        "device_method":        device_method,
+        "device_backend":       device_backend,
+        "capture_error":        audio_capture_error,
         "driver_name":          driver_info["name"],
         "driver_download_url":  driver_info["url"],
+        # kept for backward compatibility
+        "virtual_device_found": loopback_found,
+        "virtual_device_name":  device_name,
     }
+
+
+@app.get("/audio/devices")
+async def get_audio_devices():
+    """Diagnostic endpoint — list all loopback candidates and current device."""
+    current = audio_capture.get_device_info() if audio_capture else None
+    candidates = list_all_loopback_candidates()
+    wasapi_available = any(c["backend"] == "pyaudiowpatch" for c in candidates)
+
+    return {
+        "current_device":          current,
+        "capture_error":           audio_capture_error,
+        "candidates":              candidates,
+        "wasapi_native_available": wasapi_available,
+        "manual_override":         os.environ.get("AUDIO_LOOPBACK_DEVICE", ""),
+        "vb_cable_download":       "https://vb-audio.com/Cable/",
+        "blackhole_download":      "https://existential.audio/blackhole/",
+    }
+
+
+@app.put("/audio/device")
+async def switch_audio_device(body: dict):
+    """Switch loopback device at runtime (use device name or 'wasapi_native')."""
+    global audio_capture, audio_capture_error
+
+    device_name = (body.get("name") or "").strip()
+    if not device_name:
+        raise HTTPException(status_code=400, detail="'name' field is required")
+
+    if audio_capture is None:
+        # Try to create a fresh capture with the requested device
+        try:
+            os.environ["AUDIO_LOOPBACK_DEVICE"] = device_name
+            audio_capture = AudioCapture()
+            audio_capture.start()
+            audio_capture_error = None
+        except Exception as exc:
+            audio_capture_error = str(exc)
+            os.environ.pop("AUDIO_LOOPBACK_DEVICE", None)
+            raise HTTPException(status_code=500, detail=str(exc))
+        finally:
+            os.environ.pop("AUDIO_LOOPBACK_DEVICE", None)
+    else:
+        try:
+            audio_capture.switch_device(device_name)
+            audio_capture_error = None
+        except Exception as exc:
+            audio_capture_error = str(exc)
+            raise HTTPException(status_code=500, detail=str(exc))
+
+    return {"status": "ok", "device": audio_capture.get_device_info()}
 
 
 @app.get("/api/languages")
