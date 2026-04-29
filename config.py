@@ -15,3 +15,20 @@ SAMPLE_RATE = 16000
 
 # Silence detection threshold (RMS level below this is considered silence)
 SILENCE_THRESHOLD = 0.01
+
+# Glossary profile for term protection (tech, finance, legal, none)
+GLOSSARY_PROFILE = "tech"
+
+# Supported languages: (code, flag_emoji, display_name)
+SUPPORTED_LANGUAGES = [
+    ("pt", "🇧🇷", "Português"),
+    ("en", "🇺🇸", "English"),
+    ("es", "🇪🇸", "Español"),
+    ("fr", "🇫🇷", "Français"),
+    ("de", "🇩🇪", "Deutsch"),
+    ("it", "🇮🇹", "Italiano"),
+    ("ja", "🇯🇵", "日本語"),
+    ("zh", "🇨🇳", "中文"),
+    ("ko", "🇰🇷", "한국어"),
+    ("ar", "🇸🇦", "العربية"),
+]

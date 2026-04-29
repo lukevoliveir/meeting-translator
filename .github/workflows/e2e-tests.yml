@@ -1,0 +1,93 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Install test dependencies
+        run: pip install -r tests/requirements-test.txt
+
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: frontend
+
+      - name: Start backend
+        run: |
+          cd backend
+          python main.py &
+          echo $! > /tmp/backend.pid
+          # Wait for backend to be ready
+          for i in $(seq 1 10); do
+            curl -s http://localhost:8000/health && break
+            sleep 1
+          done
+
+      - name: Start frontend
+        run: |
+          cd frontend
+          npm run dev &
+          echo $! > /tmp/frontend.pid
+          # Wait for Vite dev server
+          for i in $(seq 1 15); do
+            curl -s http://localhost:5173 && break
+            sleep 1
+          done
+
+      - name: Run API and backend tests
+        run: pytest tests/test_backend_api.py -v --tb=short
+
+      - name: Run E2E and frontend tests
+        run: |
+          pytest tests/test_e2e_full_flow.py tests/test_frontend_ui.py \
+            -v --tb=short \
+            --html=tests/reports/html_report.html \
+            --self-contained-html \
+            --junitxml=tests/reports/junit_report.xml
+        env:
+          DISPLAY: ":99"
+
+      - name: Run WebSocket tests
+        run: pytest tests/test_websocket.py -v --tb=short
+        continue-on-error: true  # May skip without real audio device
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-report
+          path: tests/reports/
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-screenshots
+          path: tests/reports/screenshots/
+
+      - name: Stop services
+        if: always()
+        run: |
+          [ -f /tmp/backend.pid ] && kill $(cat /tmp/backend.pid) || true
+          [ -f /tmp/frontend.pid ] && kill $(cat /tmp/frontend.pid) || true

@@ -1,0 +1,136 @@
+.ls-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+.ls-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2rem;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.ls-icon {
+  font-size: 2.5rem;
+}
+
+.ls-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.ls-subtitle {
+  color: var(--text-muted);
+  font-size: 1rem;
+  text-align: center;
+}
+
+.ls-loading {
+  color: var(--text-muted);
+  padding: 2rem 0;
+}
+
+.ls-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.ls-list::-webkit-scrollbar {
+  width: 4px;
+}
+.ls-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ls-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.ls-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  text-align: left;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.ls-item:hover {
+  background: var(--card-hover);
+}
+
+.ls-item--selected {
+  border-color: var(--accent);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.ls-flag {
+  font-size: 1.5rem;
+}
+
+.ls-name {
+  flex: 1;
+  font-size: 1rem;
+}
+
+.ls-check {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.ls-btn-primary {
+  width: 100%;
+  padding: 0.85rem;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  border-radius: var(--radius);
+}
+
+.ls-btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.ls-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  color: var(--danger);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.ls-btn-retry {
+  background: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 0.4rem 1rem;
+  font-size: var(--text-sm);
+  border-radius: var(--radius);
+}
+
+.ls-btn-retry:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
