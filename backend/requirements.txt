@@ -9,3 +9,5 @@ torch>=2.0.0
 yt-dlp>=2023.12.30
 deep-translator>=1.11.4
 librosa>=0.10.0
+# Windows WASAPI native loopback (no virtual driver required on Windows 10/11)
+pyaudiowpatch>=0.2.12; sys_platform == "win32"
