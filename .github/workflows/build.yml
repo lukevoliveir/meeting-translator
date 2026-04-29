@@ -6,6 +6,10 @@ on:
   # Trigger manually from the GitHub Actions tab (Actions → Build and Release → Run workflow)
   workflow_dispatch:
 
+# Required so GITHUB_TOKEN can upload assets to releases
+permissions:
+  contents: write
+
 jobs:
   # ─── Windows ────────────────────────────────────────────────────────────────
   build-windows:
