@@ -1,16 +1,24 @@
-"""Floating overlay window with system tray integration."""
+"""Janela de overlay flutuante com ícone na bandeja do sistema."""
 
 import platform
 import threading
 import tkinter as tk
-from typing import Optional
+from typing import Optional, Callable
+from datetime import datetime
 
 from PIL import Image, ImageDraw
-from pynput import keyboard
-from pystray import Icon, Menu, MenuItem
+
+_IS_MACOS = platform.system() == "Darwin"
+
+# pynput e pystray usam AppKit no macOS, o que causa crash quando rodado
+# junto com Tkinter (conflito de thread TIS/TSM). Importar apenas em
+# plataformas que não são macOS.
+if not _IS_MACOS:
+    from pynput import keyboard
+    from pystray import Icon, Menu, MenuItem
 
 
-# Language flag emoji mapping
+# Mapeamento de bandeira por código de idioma
 LANGUAGE_FLAGS = {
     "pt": "🇧🇷",
     "en": "🇺🇸",
@@ -28,89 +36,118 @@ LANGUAGE_FLAGS = {
 
 
 class OverlayWindow:
-    """Floating overlay window for displaying translated captions."""
+    """Janela de overlay flutuante para exibir legendas traduzidas."""
 
-    def __init__(self):
-        """Initialize the overlay window."""
+    def __init__(self, on_close: Optional[Callable] = None):
+        """
+        Inicializa a janela de overlay.
+
+        Args:
+            on_close: Callback chamado quando o usuário clica no botão ✕
+        """
         self.root = tk.Tk()
         self.root.overrideredirect(True)
         self.root.attributes("-alpha", 0.85)
         self.root.attributes("-topmost", True)
 
-        # Get screen dimensions
+        # Dimensões da tela
         self.screen_width = self.root.winfo_screenwidth()
         self.screen_height = self.root.winfo_screenheight()
 
-        # Create main frame with semi-transparent background
         self.root.configure(bg="#000000")
 
-        # Create label for text display
+        # Frame principal
+        self.frame = tk.Frame(self.root, bg="#000000")
+        self.frame.pack(fill=tk.BOTH, expand=True)
+
+        # Label de texto (lado esquerdo)
         self.label = tk.Label(
-            self.root,
+            self.frame,
             text="Aguardando áudio...",
             font=("Arial", 16, "bold"),
             fg="white",
             bg="#000000",
-            wraplength=780,
+            wraplength=720,
             justify=tk.CENTER,
             padx=20,
             pady=20,
         )
-        self.label.pack()
+        self.label.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # Position at bottom center
+        # Botão fechar (lado direito)
+        self.on_close_callback = on_close
+        self.close_btn = tk.Button(
+            self.frame,
+            text="✕",
+            font=("Arial", 12, "bold"),
+            fg="white",
+            bg="#000000",
+            highlightbackground="#000000",
+            activebackground="#333333",
+            bd=0,
+            padx=5,
+            pady=5,
+            cursor="hand2",
+            command=self._on_close_click,
+        )
+        self.close_btn.pack(side=tk.RIGHT, padx=10, pady=10)
+
+        # Posiciona na parte inferior central
         self._position_window()
 
-        # Bind dragging
+        # Bind para arrastar
         self.label.bind("<Button-1>", self._start_drag)
         self.label.bind("<B1-Motion>", self._drag)
+        self.frame.bind("<Button-1>", self._start_drag)
+        self.frame.bind("<B1-Motion>", self._drag)
 
-        # Keyboard shortcut listener
-        self.listener: Optional[keyboard.Listener] = None
         self.is_visible = True
+        self._hidden = False
 
-        # Current text state
+        # Estado do texto atual
         self.current_text = ""
         self.current_lang = ""
 
-        # Tray icon
-        self.tray_icon: Optional[Icon] = None
-        self._setup_tray()
+        # Rastreamento de sessão
+        self.session_start_time = datetime.now()
+        self.phrase_count = 0
+        self.speaker_profile_active = False
 
-        # Flag to track if we're currently hidden
-        self._hidden = False
+        # Listener de teclado (desativado no macOS)
+        self.listener = None
+
+        # Ícone na bandeja (desativado no macOS — AppKit exige thread principal)
+        self.tray_icon = None
+        if not _IS_MACOS:
+            self._setup_tray()
 
     def _position_window(self) -> None:
-        """Position window at bottom center of screen."""
+        """Posiciona a janela na parte inferior central da tela."""
         window_width = 800
         window_height = 100
         x = (self.screen_width - window_width) // 2
         y = self.screen_height - window_height - 30
-
         self.root.geometry(f"{window_width}x{window_height}+{x}+{y}")
 
-    def _start_drag(self, event):
-        """Start dragging the window."""
+    def _start_drag(self, event) -> None:
+        """Inicia o arrasto da janela."""
         self.drag_x = event.x_root - self.root.winfo_x()
         self.drag_y = event.y_root - self.root.winfo_y()
 
-    def _drag(self, event):
-        """Handle window dragging."""
+    def _drag(self, event) -> None:
+        """Movimenta a janela durante o arrasto."""
         x = event.x_root - self.drag_x
         y = event.y_root - self.drag_y
         self.root.geometry(f"+{x}+{y}")
 
     def _setup_tray(self) -> None:
-        """Setup system tray icon and menu."""
-        # Create a simple icon image
+        """Configura o ícone na bandeja do sistema (somente Windows/Linux)."""
         icon_image = self._create_icon_image()
-
         menu = Menu(
             MenuItem("Mostrar/Ocultar", self._toggle_visibility_from_tray),
             MenuItem("Sobre", self._show_about),
             MenuItem("Sair", self._exit_app),
         )
-
         self.tray_icon = Icon(
             "meeting-translator",
             icon_image,
@@ -119,47 +156,37 @@ class OverlayWindow:
         )
 
     def _create_icon_image(self) -> Image.Image:
-        """Create a simple icon image for the system tray."""
+        """Cria imagem simples para o ícone da bandeja."""
         size = (64, 64)
         image = Image.new("RGBA", size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(image)
-
-        # Draw a simple circle with "MT" text
         draw.ellipse([10, 10, 54, 54], fill=(52, 152, 219), outline=(41, 128, 185))
         draw.text((28, 26), "MT", fill=(255, 255, 255), anchor="mm")
-
         return image
 
     def _toggle_visibility_from_tray(self, icon, item) -> None:
-        """Toggle visibility from tray menu."""
+        """Alterna visibilidade a partir do menu da bandeja (thread-safe)."""
         self.toggle_visibility()
 
     def _show_about(self, icon, item) -> None:
-        """Show about dialog."""
-        about_text = (
-            "Tradutor de Reuniões em Tempo Real\n"
-            "Versão 1.0\n\n"
-            "Captura e traduz áudio em tempo real\n"
-            "para suas reuniões online."
-        )
-        print(f"About: {about_text}")
+        """Exibe informações sobre o app."""
+        print("Tradutor de Reuniões em Tempo Real — Versão 1.0")
 
     def _exit_app(self, icon, item) -> None:
-        """Exit the application."""
-        self.root.quit()
+        """Encerra o app a partir da bandeja (thread-safe)."""
+        self.root.after(0, self.root.quit)
 
     def _setup_keyboard_listener(self) -> None:
-        """Setup global keyboard listener for Alt+T shortcut."""
+        """Configura listener global de teclado para atalho Alt+T (não macOS)."""
+        if _IS_MACOS:
+            return
+
         def on_press(key):
             try:
-                # Check for Alt+T combination
-                if hasattr(key, "char"):
-                    if (
-                        key == keyboard.Key.alt_l or key == keyboard.Key.alt_r
-                    ) and hasattr(self, "_alt_pressed"):
-                        self._alt_pressed = True
-                elif hasattr(key, "name"):
-                    if key.name == "t" and hasattr(self, "_alt_pressed") and self._alt_pressed:
+                if key == keyboard.Key.alt_l or key == keyboard.Key.alt_r:
+                    self._alt_pressed = True
+                elif hasattr(key, "char") and key.char == "t":
+                    if getattr(self, "_alt_pressed", False):
                         self.toggle_visibility()
             except AttributeError:
                 pass
@@ -175,50 +202,45 @@ class OverlayWindow:
         self.listener.start()
 
     def start(self) -> None:
-        """Start the overlay window and tray icon."""
-        # Setup keyboard listener
+        """Inicia a janela de overlay e o ícone da bandeja."""
         self._setup_keyboard_listener()
 
-        # Start tray icon in a separate thread
-        if self.tray_icon:
+        if not _IS_MACOS and self.tray_icon:
             tray_thread = threading.Thread(target=self.tray_icon.run, daemon=True)
             tray_thread.start()
 
-        # Right-click binding for context menu
         self.label.bind("<Button-3>", self._show_context_menu)
-
-        # Start tkinter main loop
         self.root.mainloop()
 
     def _show_context_menu(self, event) -> None:
-        """Show context menu on right-click."""
+        """Exibe menu de contexto ao clicar com botão direito."""
         menu = tk.Menu(self.root, tearoff=0)
         menu.add_command(label="Mostrar/Ocultar", command=self.toggle_visibility)
-        menu.add_command(label="Sobre", command=lambda: print("About clicked"))
         menu.add_separator()
         menu.add_command(label="Sair", command=self.root.quit)
-
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
             menu.grab_release()
 
     def toggle_visibility(self) -> None:
-        """Toggle window visibility."""
-        if self._hidden:
-            self.root.deiconify()
-            self._hidden = False
-        else:
-            self.root.withdraw()
-            self._hidden = True
+        """Alterna visibilidade da janela (thread-safe via root.after)."""
+        def _toggle():
+            if self._hidden:
+                self.root.deiconify()
+                self._hidden = False
+            else:
+                self.root.withdraw()
+                self._hidden = True
+        self.root.after(0, _toggle)
 
     def update_text(self, text: str, lang: str) -> None:
         """
-        Update the overlay text in a thread-safe manner.
+        Atualiza o texto do overlay de forma thread-safe.
 
         Args:
-            text: Text to display.
-            lang: Language code for the text (ISO 639-1).
+            text: Texto a exibir.
+            lang: Código do idioma (ISO 639-1).
         """
         self.current_text = text
         self.current_lang = lang
@@ -226,36 +248,79 @@ class OverlayWindow:
         def update():
             if text and text.strip():
                 flag = LANGUAGE_FLAGS.get(lang, "🌐")
-                display_text = f"{flag} {text}"
-                self.label.config(text=display_text)
+                self.label.config(text=f"{flag} {text}")
             else:
                 self.label.config(text="Aguardando áudio...")
 
         self.root.after(0, update)
 
-    def get_position(self) -> tuple:
+    def _on_close_click(self) -> None:
+        """Trata clique no botão ✕ — chama callback se definido."""
+        if self.on_close_callback:
+            self.on_close_callback()
+        else:
+            self.root.quit()
+
+    def set_speaker_profile_active(self, active: bool) -> None:
         """
-        Get current window position.
+        Define indicador de perfil de falante ativo.
+
+        Args:
+            active: True se um perfil está sendo usado
+        """
+        self.speaker_profile_active = active
+
+    def increment_phrase_count(self) -> None:
+        """Incrementa o contador de frases traduzidas."""
+        self.phrase_count += 1
+
+    def get_session_stats(self) -> dict:
+        """
+        Retorna estatísticas da sessão atual.
 
         Returns:
-            Tuple of (x, y) coordinates.
+            Dicionário com start_time, elapsed_minutes, phrase_count, speaker_profile_active
+        """
+        elapsed = datetime.now() - self.session_start_time
+        return {
+            "start_time": self.session_start_time,
+            "elapsed_minutes": int(elapsed.total_seconds() / 60),
+            "phrase_count": self.phrase_count,
+            "speaker_profile_active": self.speaker_profile_active,
+        }
+
+    def get_position(self) -> tuple:
+        """
+        Retorna a posição atual da janela.
+
+        Returns:
+            Tupla (x, y)
         """
         return (self.root.winfo_x(), self.root.winfo_y())
 
     def set_position(self, x: int, y: int) -> None:
         """
-        Set window position.
+        Define a posição da janela.
 
         Args:
-            x: X coordinate.
-            y: Y coordinate.
+            x: Coordenada X
+            y: Coordenada Y
         """
         self.root.geometry(f"+{x}+{y}")
 
     def destroy(self) -> None:
-        """Clean up and destroy the window."""
+        """Encerra e destrói a janela de forma segura."""
         if self.listener:
-            self.listener.stop()
+            try:
+                self.listener.stop()
+            except Exception:
+                pass
         if self.tray_icon:
-            self.tray_icon.stop()
-        self.root.destroy()
+            try:
+                self.tray_icon.stop()
+            except Exception:
+                pass
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass

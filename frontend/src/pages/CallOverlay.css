@@ -1,0 +1,164 @@
+.co-page {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(8px);
+}
+
+.co-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  min-height: 72px;
+}
+
+.co-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.co-flag {
+  font-size: 1.5rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.co-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.co-caption {
+  flex: 1;
+  font-size: 1.25rem;
+  line-height: 1.5;
+  color: var(--text);
+  text-align: center;
+}
+
+.co-popup-btn {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.co-popup-btn:hover {
+  background: rgba(99, 102, 241, 0.25);
+}
+
+.co-exit-btn {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.co-exit-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.co-stats {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.co-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-left: auto;
+}
+
+.co-dot--on { background: var(--success); }
+.co-dot--off { background: var(--danger); }
+
+/* Exit modal */
+.co-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.co-modal {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2rem;
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  text-align: center;
+}
+
+.co-modal h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.co-modal p {
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.co-modal-btns {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.co-modal-continue {
+  flex: 1;
+  padding: 0.75rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+}
+
+.co-modal-continue:hover {
+  border-color: #555;
+}
+
+.co-modal-end {
+  flex: 1;
+  padding: 0.75rem;
+  background: var(--danger);
+  color: #fff;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.co-modal-end:hover {
+  opacity: 0.9;
+}

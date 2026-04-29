@@ -2,8 +2,6 @@
 
 from deep_translator import GoogleTranslator
 
-from config import TARGET_LANG
-
 
 # Language code mapping for ISO 639-1 to language names
 LANGUAGE_NAMES = {
@@ -67,3 +65,8 @@ def get_language_name(lang_code: str) -> str:
         Language name, or the code itself if not recognized.
     """
     return LANGUAGE_NAMES.get(lang_code, lang_code)
+
+
+class Translator:
+    def translate(self, text: str, source_lang: str, target_lang: str) -> str:
+        return translate(text, source_lang, target_lang)
