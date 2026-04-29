@@ -204,6 +204,14 @@ async def get_session(session_id: str):
 async def websocket_transcribe(websocket: WebSocket, session_id: str):
     await websocket.accept()
 
+    if audio_capture is None:
+        await websocket.send_json({
+            "type": "error",
+            "message": audio_capture_error or "Nenhum dispositivo de loopback encontrado. Instale BlackHole (Mac) ou VB-Audio CABLE (Windows).",
+        })
+        await websocket.close()
+        return
+
     try:
         init_msg = await websocket.receive_json()
         target_lang = init_msg.get("target_lang", "pt")
@@ -234,6 +242,8 @@ async def websocket_transcribe(websocket: WebSocket, session_id: str):
             )
 
     loop = asyncio.get_event_loop()
+    silence_count = 0
+    SILENCE_WARNING_AFTER = 3  # chunks × 5s = 15 segundos sem áudio
 
     try:
         while True:
@@ -245,7 +255,20 @@ async def websocket_transcribe(websocket: WebSocket, session_id: str):
             )
 
             if not text or not text.strip():
+                silence_count += 1
+                if silence_count == SILENCE_WARNING_AFTER:
+                    device_name = audio_capture.get_device_info()["name"]
+                    await websocket.send_json({
+                        "type": "warning",
+                        "message": (
+                            f"Capturando de '{device_name}' mas sem áudio detectado. "
+                            "Certifique-se que o Google Meet/Zoom está usando este dispositivo "
+                            "como saída de áudio."
+                        ),
+                    })
                 continue
+
+            silence_count = 0
 
             translated = text
             if detected_lang not in ("silent", "error") and detected_lang != target_lang:

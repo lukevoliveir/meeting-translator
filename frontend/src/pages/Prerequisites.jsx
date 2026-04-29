@@ -136,6 +136,27 @@ export default function Prerequisites({ onReady }) {
           </div>
         )}
 
+        {/* Audio routing instructions for BlackHole / VB-Cable */}
+        {status === 'ready' && !isFallback && currentDevice && (
+          <div className="pr-info-box pr-info-box--warn">
+            <strong>⚙️ Configure a saída de áudio da call:</strong>
+            {currentDevice.method === 'blackhole' && (
+              <p style={{ margin: '0.4rem 0 0' }}>
+                No Google Meet/Zoom → ícone de áudio →{' '}
+                <strong>selecione {currentDevice.name} como saída</strong>.
+                Para continuar ouvindo, crie um <em>Multi-Output Device</em> no Audio MIDI Setup
+                combinando {currentDevice.name} + fones.
+              </p>
+            )}
+            {(currentDevice.method === 'vb_cable' || currentDevice.method === 'wasapi_native') && (
+              <p style={{ margin: '0.4rem 0 0' }}>
+                No Google Meet/Zoom → ícone de áudio →{' '}
+                <strong>selecione CABLE Input (VB-Audio Virtual Cable) como saída</strong>.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Microphone fallback warning (macOS without BlackHole) */}
         {status === 'ready' && isFallback && (
           <div className="pr-info-box pr-info-box--warn">
